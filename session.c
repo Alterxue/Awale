@@ -47,7 +47,7 @@ Player* find_player_by_name(const char *name) {
     }
     return NULL;
 }
-
+// Using ERROR locally just to mark it as invalid
 GameSession* find_empty_game_slot() {
     for (int i = 0; i < MAX_GAMES; i++) {
         if (all_games[i].session_id == 0) return &all_games[i];
@@ -224,4 +224,91 @@ void create_game_session(int acceptor_fd, const char *challenger_name) {
 
 void handle_play_move(int fd, int pit_index) {
     
+}
+
+// system of bio 
+void set_player_bio(int fd, const char *bio) {
+    Player *p = find_player_by_fd(fd);
+    if (!p) return;
+
+    strncpy(p->bio, bio, sizeof(p->bio) - 1);
+    p->bio[sizeof(p->bio) - 1] = '\0';
+    
+    send_simple_packet(fd, CMD_SUCCESS, "Bio mise à jour avec succès.");
+}
+
+void send_player_bio(int requester_fd, const char *target_name) {
+    Player *target = find_player_by_name(target_name);
+    if (!target) {
+        send_simple_packet(requester_fd, CMD_ERROR, "Erreur: Joueur introuvable.");
+        return;
+    }
+    
+    char buffer[512];
+    // group the name of the player and the Bio 
+    snprintf(buffer, sizeof(buffer), "=== Bio de %s ===\n%s\n=================", target->pseudo, target->bio);
+    send_simple_packet(requester_fd, CMD_SHOW_BIO, buffer);
+}
+
+// system of spectateur
+
+// checking the match which are playing
+void send_games_list(int fd) {
+    char list_buffer[512] = "=== Parties en cours ===\n";
+    int active_games = 0;
+
+    for (int i = 0; i < MAX_GAMES; i++) {
+        // if the room is using
+        if (all_games[i].session_id != 0) {
+            Player *p1 = find_player_by_fd(all_games[i].player1_fd);
+            Player *p2 = find_player_by_fd(all_games[i].player2_fd);
+            
+            if (p1 && p2) {
+                char line[128];
+                // format
+                snprintf(line, sizeof(line), " [Salon %d] %s vs %s (%d spectateurs)\n", 
+                         all_games[i].session_id, p1->pseudo, p2->pseudo, all_games[i].spectator_count);
+                strcat(list_buffer, line);
+                active_games++;
+            }
+        }
+    }
+
+    if (active_games == 0) {
+        strcat(list_buffer, " Aucune partie en cours.\n");
+    }
+    strcat(list_buffer, "========================");
+
+    send_simple_packet(fd, CMD_GAMES_LIST, list_buffer);
+}
+
+void join_game_as_spectator(int fd, const char *target_name) {
+    Player *spectator = find_player_by_fd(fd);
+    Player *target = find_player_by_name(target_name);
+
+    if (!spectator || !target) {
+        send_simple_packet(fd, CMD_ERROR, "Erreur: Joueur introuvable.");
+        return;
+    }
+    
+    if (target->state != STATE_PLAYING || target->current_game_id == -1) {
+        send_simple_packet(fd, CMD_ERROR, "Erreur: Ce joueur n'est pas en partie.");
+        return;
+    }
+    
+    GameSession *game = find_game_by_id(target->current_game_id);
+    if (!game) return;
+    
+    if (game->spectator_count >= MAX_SPECTATORS) {
+        send_simple_packet(fd, CMD_ERROR, "Erreur: Le salon est plein de spectateurs.");
+        return;
+    }
+    
+    // add the fd to the game_spectator
+    game->spectators[game->spectator_count++] = fd;
+    spectator->state = STATE_SPECTATING;
+    spectator->current_game_id = game->session_id;
+    
+    send_simple_packet(fd, CMD_SUCCESS, "Vous observez maintenant la partie.");
+    // todo : send the board to the spectator 
 }

@@ -41,7 +41,6 @@ typedef struct {
 extern Player all_players[MAX_CLIENTS];
 extern GameSession all_games[MAX_GAMES];
 
-
 // Lifecycle management
 void init_player(int fd);
 void remove_player(int fd);
@@ -54,6 +53,14 @@ void send_lobby_list(int fd);
 void handle_challenge_request(int challenger_fd, const char *target_name);
 void handle_challenge_reject(int rejector_fd, const char *challenger_name);
 void create_game_session(int acceptor_fd, const char *challenger_name);
+
+// fonction of bio
+void set_player_bio(int fd, const char *bio);
+void send_player_bio(int requester_fd, const char *target_name);
+
+// fonction of spectator
+void send_games_list(int fd);
+void join_game_as_spectator(int fd, const char *target_name);
 
 // In-game operations
 void handle_play_move(int fd, int pit_index);

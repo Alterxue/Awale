@@ -54,10 +54,28 @@ void parse_user_input(char *input, Packet *p) {
         p->type = CMD_CHAT_ALL;
         strcpy(p->payload, input + 6);
         p->data_length = strlen(p->payload);
-    } 
+    }
+    else if (strncmp(input, "/bio ", 5) == 0) {
+        p->type = CMD_SET_BIO;
+        strcpy(p->payload, input + 5);
+        p->data_length = strlen(p->payload);
+    }
+    else if (strncmp(input, "/whois ", 7) == 0) {
+        p->type = CMD_GET_BIO;
+        strcpy(p->payload, input + 7);
+        p->data_length = strlen(p->payload);
+    }
+    else if (strcmp(input, "/games") == 0) {
+        p->type = CMD_LIST_GAMES;
+    }
+    else if (strncmp(input, "/spectate ", 10) == 0) {
+        p->type = CMD_SPECTATE;
+        strcpy(p->payload, input + 10);
+        p->data_length = strlen(p->payload);
+    }
     else {
         // Unknown command, we will let the user know locally
-        p->type = CMD_ERROR; // Using ERROR locally just to mark it as invalid
+        p->type = CMD_ERROR;
     }
 }
 
@@ -70,6 +88,11 @@ void print_help_menu() {
     printf(" /reject <pseudo>      - Refuser un défi\n");
     printf(" /play <num_trou>      - Jouer un coup (ex: /play 3)\n");
     printf(" /chat <message>       - Envoyer un message public\n");
+    printf(" /bio <texte>          - Modifier votre description (bio)\n");
+    printf(" /whois <pseudo>       - Voir la bio d'un joueur\n");
+    printf(" /games                - Voir les parties en cours\n");
+    printf(" /spectate <pseudo>    - Observer la partie d'un joueur\n");
+    printf(" /quit                 - Se deconnecter et quitter le jeu\n");
     printf("=============================\n\n");
 }
 
@@ -128,7 +151,7 @@ int main(int argc, char** argv) {
             break;
         }
 
-        // --- BRANCH A: receive the response from the server ---
+        // 1st situation: receive the response from the server  
         if (FD_ISSET(sockfd, &read_fds)) {
             Packet p;
             
@@ -165,6 +188,12 @@ int main(int argc, char** argv) {
                 case CMD_CHAT_ALL:
                     printf("[CHAT PUBLIC] %s\n", p.payload);
                     break;
+                case CMD_SHOW_BIO:
+                    printf("\n%s\n", p.payload);
+                    break; 
+                case CMD_GAMES_LIST:
+                    printf("\n%s\n", p.payload);
+                    break; 
                 default:
                     printf("[MESSAGE INCONNU] Type: %d\n", p.type);
                     break;
@@ -173,7 +202,7 @@ int main(int argc, char** argv) {
             fflush(stdout);
         }
 
-        // --- BRANCH B: receive the input of the client ---
+        //2nd situation: receive the input of the client
         if (FD_ISSET(STDIN_FILENO, &read_fds)) {
             memset(buffer, 0, BUFFER_SIZE);
             if (fgets(buffer, BUFFER_SIZE, stdin) != NULL) {
@@ -183,6 +212,11 @@ int main(int argc, char** argv) {
                     printf("> ");
                     fflush(stdout);
                     continue;
+                }
+
+                if (strncmp(buffer, "/quit", 5) == 0) {
+                    printf("Déconnexion en cours... Au revoir !\n");
+                    break; 
                 }
 
                 Packet p;

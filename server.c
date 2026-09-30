@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // 4. Start listening
+    // Start listening
     if (listen(server_fd, 5) < 0) {
         perror("Listen error");
         exit(EXIT_FAILURE);
@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 
     fd_set read_fds;
 
-    // 5. Main event loop
+    // Main event loop
     while (1) {
         FD_ZERO(&read_fds);
         FD_SET(server_fd, &read_fds);
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        // --- BRANCH A: New connection coming in ---
+        // 1st situation: New connection coming in
         if (FD_ISSET(server_fd, &read_fds)) {
             if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
                 perror("Accept error");
@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        // --- BRANCH B: Data coming from existing clients ---
+        //2nd situation: Data coming from existing clients
         for (int i = 0; i < MAX_CLIENTS; i++) {
             int sd = client_sockets[i];
 
@@ -116,12 +116,15 @@ int main(int argc, char *argv[]) {
                 int valread = receive_packet(sd, &p);
                 
                 if (valread == 0) {
-                    // Client disconnected gracefully
+                    // Client disconnected 
                     getpeername(sd, (struct sockaddr*)&address, (socklen_t*)&addrlen);
                     printf("Client disconnected: IP %s, Port %d\n",
                            inet_ntoa(address.sin_addr), ntohs(address.sin_port));
                            
-                    // Call session.c to handle game forfeit and cleanup
+                    // Call sessCMD_SET_BIO,            // 客户端请求修改自己的 Bio
+    CMD_GET_BIO,            // 客户端请求查看别人的 Bio
+    CMD_SHOW_BIO,           // 服务器下发 Bio 文本
+    CMD_SPECTATE,           // 客户端请求观战ion.c to handle game forfeit and cleanup
                     remove_player(sd); 
                     
                     close(sd);
@@ -158,6 +161,23 @@ int main(int argc, char *argv[]) {
                         case CMD_PLAY_MOVE:
                             printf("FD %d requests move at pit: %s\n", sd, p.payload);
                             handle_play_move(sd, atoi(p.payload));
+                            break;
+
+                        case CMD_SET_BIO:
+                            set_player_bio(sd, p.payload);
+                            break;
+                            
+                        case CMD_GET_BIO:
+                            send_player_bio(sd, p.payload);
+                            break;
+
+                        case CMD_LIST_GAMES:
+                            printf("FD %d requested games list\n", sd);
+                            send_games_list(sd);
+                            break;
+                            
+                        case CMD_SPECTATE:
+                            join_game_as_spectator(sd, p.payload);
                             break;
                             
                         case CMD_CHAT_ALL:

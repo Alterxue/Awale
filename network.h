@@ -14,6 +14,12 @@ typedef enum {
     CMD_PLAY_MOVE,          // Client sends a move (pit index)
     CMD_BOARD_STATE,        // Server broadcasts the updated board state
     CMD_CHAT_ALL,           // Global chat message in the lobby
+    CMD_SET_BIO,            // modify the bio
+    CMD_GET_BIO,            // request to check the Bio of someone else
+    CMD_SHOW_BIO,           // the server gives the Bio
+    CMD_SPECTATE,           // request to watch a match
+    CMD_LIST_GAMES,         // client request the list of match
+    CMD_GAMES_LIST,         // server: respond with the list of the match   
     CMD_ERROR,              // Error message (e.g., invalid move, name taken)
     CMD_SUCCESS             // Success confirmation message
 } CommandType;
