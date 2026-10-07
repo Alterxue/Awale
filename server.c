@@ -121,10 +121,6 @@ int main(int argc, char *argv[]) {
                     printf("Client disconnected: IP %s, Port %d\n",
                            inet_ntoa(address.sin_addr), ntohs(address.sin_port));
                            
-                    // Call sessCMD_SET_BIO,            // 客户端请求修改自己的 Bio
-    CMD_GET_BIO,            // 客户端请求查看别人的 Bio
-    CMD_SHOW_BIO,           // 服务器下发 Bio 文本
-    CMD_SPECTATE,           // 客户端请求观战ion.c to handle game forfeit and cleanup
                     remove_player(sd); 
                     
                     close(sd);
