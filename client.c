@@ -8,7 +8,6 @@
 #include <arpa/inet.h>
 #include <sys/select.h>
 
-// Include our custom network protocol
 #include "network.h"
 
 #define BUFFER_SIZE 1024
@@ -73,6 +72,26 @@ void parse_user_input(char *input, Packet *p) {
         strcpy(p->payload, input + 10);
         p->data_length = strlen(p->payload);
     }
+    else if (strncmp(input, "/friend ", 8) == 0) {
+        p->type = CMD_FRIEND_ADD;
+        strcpy(p->payload, input + 8);
+        p->data_length = strlen(p->payload);
+    }
+    else if (strcmp(input, "/private") == 0) {
+        p->type = CMD_SET_PRIVATE;
+        p->data_length = 0;
+    }
+    else if (strcmp(input, "/save") == 0) {
+        p->type = CMD_SAVE_GAME;
+    }
+    else if (strcmp(input, "/replays") == 0) {
+        p->type = CMD_LIST_REPLAYS;
+    }
+    else if (strncmp(input, "/replay ", 8) == 0) {
+        p->type = CMD_REPLAY;
+        strcpy(p->payload, input + 8);
+        p->data_length = strlen(p->payload);
+    }
     else {
         // Unknown command, we will let the user know locally
         p->type = CMD_ERROR;
@@ -82,7 +101,7 @@ void parse_user_input(char *input, Packet *p) {
 void print_help_menu() {
     printf("\n=== Commandes Disponibles ===\n");
     printf(" /login <pseudo>       - Se connecter avec un pseudo\n");
-    printf(" /list                 - Voir les joueurs en ligne\n");
+    printf(" /list                 - Voir les joueurs qui sont dans le lobby\n");
     printf(" /challenge <pseudo>   - Défier un joueur\n");
     printf(" /accept <pseudo>      - Accepter un défi\n");
     printf(" /reject <pseudo>      - Refuser un défi\n");
@@ -93,6 +112,11 @@ void print_help_menu() {
     printf(" /games                - Voir les parties en cours\n");
     printf(" /spectate <pseudo>    - Observer la partie d'un joueur\n");
     printf(" /quit                 - Se deconnecter et quitter le jeu\n");
+    printf(" /friend <pseudo>      - Ajouter un joueur à votre liste d'amis\n");
+    printf(" /private              - Rendre votre partie en cours privée (amis uniquement)\n");
+    printf(" /save                 - Sauvegarder la partie à la fin de une partie\n");
+    printf(" /replays              - Afficher la liste des replays sauvegardés\n");
+    printf(" /replay <id>          - Regarder un replay (ex: /replay 1)\n");
     printf("=============================\n\n");
 }
 
@@ -194,6 +218,9 @@ int main(int argc, char** argv) {
                 case CMD_GAMES_LIST:
                     printf("\n%s\n", p.payload);
                     break; 
+                case CMD_REPLAYS_LIST:
+                    printf("\n%s\n", p.payload);
+                    break;
                 default:
                     printf("[MESSAGE INCONNU] Type: %d\n", p.type);
                     break;

@@ -21,7 +21,13 @@ typedef enum {
     CMD_LIST_GAMES,         // client request the list of match
     CMD_GAMES_LIST,         // server: respond with the list of the match   
     CMD_ERROR,              // Error message (e.g., invalid move, name taken)
-    CMD_SUCCESS             // Success confirmation message
+    CMD_SUCCESS,            // Success confirmation message
+    CMD_FRIEND_ADD,         // Add a friend 
+    CMD_SET_PRIVATE,        // Set a game to mode private
+    CMD_SAVE_GAME,          // Save the current game
+    CMD_LIST_REPLAYS,       // Check all the games in replay list
+    CMD_REPLAYS_LIST,       // The server sends the replay list
+    CMD_REPLAY              // The client asks to play one certain replay
 } CommandType;
 
 // Define the standard network packet structure

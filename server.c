@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        //2nd situation: Data coming from existing clients
+        //2nd situation: Data send_simple_packet(fd, CMD_SUCCESS, "Partie terminée ! Tapez /save pour enregistrer le replay.");coming from existing clients
         for (int i = 0; i < MAX_CLIENTS; i++) {
             int sd = client_sockets[i];
 
@@ -174,6 +174,31 @@ int main(int argc, char *argv[]) {
                             
                         case CMD_SPECTATE:
                             join_game_as_spectator(sd, p.payload);
+                            break;
+
+                        case CMD_FRIEND_ADD:
+                            printf("FD %d request to add friend: %s\n", sd, p.payload);
+                            add_friend(sd, p.payload);
+                            break;
+
+                        case CMD_SET_PRIVATE:
+                            printf("FD %d request to make room private\n", sd);
+                            toggle_private_mode(sd);
+                            break;
+
+                        case CMD_SAVE_GAME:
+                            printf("FD %d requested to save game\n", sd);
+                            save_current_game(sd);
+                            break;
+
+                        case CMD_LIST_REPLAYS:
+                            printf("FD %d requested replays list\n", sd);
+                            list_replays(sd);
+                            break;
+
+                        case CMD_REPLAY:
+                            printf("FD %d requested to watch replay %s\n", sd, p.payload);
+                            handle_replay_request(sd, atoi(p.payload));
                             break;
                             
                         case CMD_CHAT_ALL:

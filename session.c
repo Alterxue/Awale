@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h> 
+#include <dirent.h>
 #include "session.h"
-#include "network.h" // Includes the Packet structure and send_packet function
+#include "network.h"
 
 // Actual global data is stored here
 Player all_players[MAX_CLIENTS];
@@ -31,6 +32,49 @@ void send_simple_packet(int fd, CommandType type, const char *msg) {
     send_packet(fd, &p);
 }
 
+GameSession* find_game_by_id(int game_id) {
+
+    for (int i = 0; i < MAX_GAMES; i++) {
+
+        if (all_games[i].session_id == game_id) return &all_games[i];
+
+    }
+
+    return NULL;
+
+}
+
+void add_friend(int fd, const char *friend_name) {
+    Player *p = find_player_by_fd(fd);
+    if (!p) return;
+    
+    if (p->friend_count >= MAX_FRIENDS) {
+        send_simple_packet(fd, CMD_ERROR, "Erreur : Liste d'amis pleine.");
+        return;
+    }
+    
+    strcpy(p->friends[p->friend_count++], friend_name);
+    send_simple_packet(fd, CMD_SUCCESS, "Ami ajouté avec succès.");
+}
+
+void toggle_private_mode(int fd) {
+    Player *p = find_player_by_fd(fd);
+    if (!p || p->current_game_id == -1) return;
+    
+    GameSession *game = find_game_by_id(p->current_game_id);
+    if (game) {
+        game->is_private = 1;
+        send_simple_packet(fd, CMD_SUCCESS, "Le salon est maintenant réservé à vos amis.");
+    }
+}
+
+int is_friend(Player *owner, const char *spectator_name) {
+    for (int i = 0; i < owner->friend_count; i++) {
+        if (strcmp(owner->friends[i], spectator_name) == 0) return 1;
+    }
+    return 0;
+}
+
 // Helper lookup functions
 Player* find_player_by_fd(int fd) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -55,12 +99,6 @@ GameSession* find_empty_game_slot() {
     return NULL;
 }
 
-GameSession* find_game_by_id(int game_id) {
-    for (int i = 0; i < MAX_GAMES; i++) {
-        if (all_games[i].session_id == game_id) return &all_games[i];
-    }
-    return NULL;
-}
 
 
 // Player lifecycle and management
@@ -223,7 +261,16 @@ void create_game_session(int acceptor_fd, const char *challenger_name) {
 // In-game move processing
 
 void handle_play_move(int fd, int pit_index) {
-    
+    //if the move is validated, copy the actual board to the game
+    // if (game->move_count < MAX_MOVES) {
+    //         game->move_history[game->move_count] = pit_index;
+            
+    //         game->board_history[game->move_count] = game->board; 
+            
+    //         game->move_count++;
+    //     }
+    // and when the game is finished, use the fonction in awale to judge who wins and send a message
+    // send_simple_packet(fd, CMD_SUCCESS, "Partie terminée ! Tapez /save pour enregistrer le replay.");
 }
 
 // system of bio 
@@ -298,6 +345,16 @@ void join_game_as_spectator(int fd, const char *target_name) {
     
     GameSession *game = find_game_by_id(target->current_game_id);
     if (!game) return;
+
+    if (game->is_private) {
+        Player *p1 = find_player_by_fd(game->player1_fd);
+        Player *p2 = find_player_by_fd(game->player2_fd);
+        
+        if (!is_friend(p1, spectator->pseudo) && !is_friend(p2, spectator->pseudo)) {
+            send_simple_packet(fd, CMD_ERROR, "Erreur : Salon privé. Vous n'êtes pas sur la liste d'amis.");
+            return;
+        }
+    }
     
     if (game->spectator_count >= MAX_SPECTATORS) {
         send_simple_packet(fd, CMD_ERROR, "Erreur: Le salon est plein de spectateurs.");
@@ -311,4 +368,103 @@ void join_game_as_spectator(int fd, const char *target_name) {
     
     send_simple_packet(fd, CMD_SUCCESS, "Vous observez maintenant la partie.");
     // todo : send the board to the spectator 
+}
+
+void save_game_to_file(GameSession *game) {
+    char filename[64];
+    snprintf(filename, sizeof(filename), "replay_game_%d.txt", game->session_id);
+    
+    FILE *file = fopen(filename, "w");
+    if (!file) return;
+    
+    fprintf(file, "=== %s VS %s ===\n\n", game->player1_name, game->player2_name);
+    
+    for (int i = 0; i < game->move_count; i++) {
+        fprintf(file, "[Tour %d] Coup joué : %d\n", i + 1, game->move_history[i]);
+        
+        // use the awale function to display the board
+        char board_ascii[512];
+        // board_to_string(&(game->board_history[i]), board_ascii);
+        // show_board(joueur1);
+        
+        fprintf(file, "%s\n", board_ascii);
+        fprintf(file, "------------------------\n");
+    }
+    
+    fclose(file);
+    printf("Visual replay saved to %s\n", filename);
+}
+
+void save_current_game(int fd) {
+    Player *p = find_player_by_fd(fd);
+    if (!p || p->current_game_id == -1) {
+        send_simple_packet(fd, CMD_ERROR, "Erreur : Vous n'êtes pas dans une partie à sauvegarder.");
+        return;
+    }
+    
+    GameSession *game = find_game_by_id(p->current_game_id);
+    if (game) {
+        save_game_to_file(game); 
+        send_simple_packet(fd, CMD_SUCCESS, "Partie sauvegardée avec succès ! Vous pouvez quitter le salon.");
+    }
+}
+
+void handle_replay_request(int fd, int game_id) {
+    char filename[64];
+    snprintf(filename, sizeof(filename), "replay_game_%d.txt", game_id);
+    
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        send_simple_packet(fd, CMD_ERROR, "Erreur : Replay introuvable.");
+        return;
+    }
+    
+    send_simple_packet(fd, CMD_SUCCESS, "=== DÉBUT DU REPLAY ===");
+    
+    char line[128];
+    char payload_buffer[512] = "";
+    
+    while (fgets(line, sizeof(line), file)) {
+        if (strlen(payload_buffer) + strlen(line) >= 500) {
+            send_simple_packet(fd, CMD_BOARD_STATE, payload_buffer);
+            memset(payload_buffer, 0, sizeof(payload_buffer)); 
+        }
+        strcat(payload_buffer, line); 
+    }
+    
+    if (strlen(payload_buffer) > 0) {
+        send_simple_packet(fd, CMD_BOARD_STATE, payload_buffer);
+    }
+    
+
+    send_simple_packet(fd, CMD_SUCCESS, "=== FIN DU REPLAY ===");
+    fclose(file);
+}
+
+void list_replays(int fd) {
+    DIR *d;
+    struct dirent *dir;
+    char list_buffer[512] = "=== Replays Disponibles ===\n";
+    int count = 0;
+
+    d = opendir(".");
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            // find only the files which begins with "replay_game"
+            if (strncmp(dir->d_name, "replay_game_", 12) == 0) {
+                char line[64];
+                snprintf(line, sizeof(line), " - %s\n", dir->d_name);
+                strcat(list_buffer, line);
+                count++;
+            }
+        }
+        closedir(d);
+    }
+
+    if (count == 0) {
+        strcat(list_buffer, " Aucun replay sauvegardé.\n");
+    }
+    strcat(list_buffer, "===========================");
+    
+    send_simple_packet(fd, CMD_REPLAYS_LIST, list_buffer);
 }
