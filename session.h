@@ -3,7 +3,7 @@
 
 // Include basic network and game rule definitions
 // #include "network.h" 
-// #include "awale.h" 
+#include "awale.h" 
 
 #define MAX_CLIENTS 30
 #define MAX_GAMES 15
@@ -45,6 +45,8 @@ typedef struct {
     //AwaleBoard board_history[MAX_MOVES];  //record every board
     char player1_name[32];      
     char player2_name[32];
+
+    Board* board;
 } GameSession;
 
 // External declaration of global state arrays (memory allocated in session.c)

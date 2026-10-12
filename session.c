@@ -44,6 +44,16 @@ GameSession* find_game_by_id(int game_id) {
 
 }
 
+GameSession* find_game_by_player_id(int player_id) {
+    for (int i = 0; i < MAX_GAMES; i++) {
+
+        if (all_games[i].player1_fd == player_id || all_games[i].player2_fd == player_id) {
+            return &all_games[i];
+        }
+    }
+    return NULL;
+}
+
 void add_friend(int fd, const char *friend_name) {
     Player *p = find_player_by_fd(fd);
     if (!p) return;
@@ -240,8 +250,9 @@ void create_game_session(int acceptor_fd, const char *challenger_name) {
     new_game->player2_fd = acceptor->fd;
     new_game->spectator_count = 0;
     
-    // Initialize Awalé board logic (Uncomment when awale.c is ready)
-    // init_board(&(new_game->board));
+    // Initialize board
+    Board* board = initBoard();
+    new_game->board = board;
 
     // Update states
     acceptor->state = STATE_PLAYING;
@@ -253,24 +264,67 @@ void create_game_session(int acceptor_fd, const char *challenger_name) {
     send_simple_packet(challenger->fd, CMD_GAME_START, "La partie commence ! Vous êtes Joueur 1.");
     send_simple_packet(acceptor->fd, CMD_GAME_START, "La partie commence ! Vous êtes Joueur 2.");
 
-    // Broadcast initial board (Placeholder payload until awale is implemented)
-    send_simple_packet(challenger->fd, CMD_BOARD_STATE, "[ PLATEAU AWALE INITIAL ]");
-    send_simple_packet(acceptor->fd, CMD_BOARD_STATE, "[ PLATEAU AWALE INITIAL ]");
+    send_simple_packet(challenger->fd, CMD_BOARD_STATE, printBoard(new_game->board, 1));
+    send_simple_packet(acceptor->fd, CMD_BOARD_STATE, printBoard(new_game->board, 2));
+}
+
+int get_player_number(GameSession* game, int player_id) {
+    if (game->player1_fd == player_id) return 1;
+    if (game->player2_fd == player_id) return 2;
+    return NULL;
+}
+
+char* get_other_player_name(GameSession* game, int player_nb) {
+    if (player_nb == 1) return game->player1_name;
+    if (player_nb == 2) return game->player2_name;
+    return NULL;
 }
 
 // In-game move processing
+void handle_play_move(int player_fd, int pit_index) {
+    GameSession *game = find_game_by_player_id(player_fd);
+    if (!game) return;
 
-void handle_play_move(int fd, int pit_index) {
-    //if the move is validated, copy the actual board to the game
-    // if (game->move_count < MAX_MOVES) {
-    //         game->move_history[game->move_count] = pit_index;
-            
-    //         game->board_history[game->move_count] = game->board; 
-            
-    //         game->move_count++;
-    //     }
-    // and when the game is finished, use the fonction in awale to judge who wins and send a message
-    // send_simple_packet(fd, CMD_SUCCESS, "Partie terminée ! Tapez /save pour enregistrer le replay.");
+    int player = get_player_number(game, player_fd);
+    if (!player) return;
+
+    int moveResult = play(game->board, player, pit_index);
+
+    if (moveResult == 1 || moveResult == 2) {
+        handle_victory(moveResult);
+    } else if (moveResult == -1) {
+        if (player_fd == game->player1_fd) {
+            send_simple_packet(game->player1_fd, CMD_BOARD_STATE, "\n INVALID MOVE : TRY AGAIN \n");
+            send_simple_packet(game->player1_fd, CMD_BOARD_STATE, printBoard(game->board, 1));
+        } else {
+            send_simple_packet(game->player2_fd, CMD_BOARD_STATE, "\n INVALID MOVE : TRY AGAIN \n");
+            send_simple_packet(game->player2_fd, CMD_BOARD_STATE, printBoard(game->board, 2));
+        }
+    } else {
+        char* otherPlayerName = get_other_player_name(game, player);
+        if (player_fd == game->player1_fd) {
+            send_simple_packet(game->player1_fd, CMD_BOARD_STATE, ("- - - %s turn - - - \n", otherPlayerName));
+            send_simple_packet(game->player1_fd, CMD_BOARD_STATE, printBoard(game->board, 1));
+            send_simple_packet(game->player2_fd, CMD_BOARD_STATE, "- - - Your turn - - - \n");
+            send_simple_packet(game->player2_fd, CMD_BOARD_STATE, printBoard(game->board, 2));
+        } else {
+            send_simple_packet(game->player2_fd, CMD_BOARD_STATE, ("- - - %s turn - - - \n", otherPlayerName));
+            send_simple_packet(game->player2_fd, CMD_BOARD_STATE, printBoard(game->board, 2));
+            send_simple_packet(game->player1_fd, CMD_BOARD_STATE, "- - - Your turn - - - \n");
+            send_simple_packet(game->player1_fd, CMD_BOARD_STATE, printBoard(game->board, 1));
+        }
+        // game->
+    }
+}
+
+void handle_victory(GameSession* game, int player_fd) {
+    if (player_fd == game->player1_fd) {
+        send_simple_packet(game->player1_fd, CMD_BOARD_STATE, "\n- - - YOU WIN - - - \n");
+        send_simple_packet(game->player2_fd, CMD_BOARD_STATE, ("\n- - - %s WIN - - - \n", game->player1_name));
+    } else {
+        send_simple_packet(game->player2_fd, CMD_BOARD_STATE, "\n- - - YOU WIN - - - \n");
+        send_simple_packet(game->player1_fd, CMD_BOARD_STATE, ("\n- - - %s WIN - - - \n", game->player2_name));
+    }
 }
 
 // system of bio 
