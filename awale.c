@@ -149,6 +149,9 @@ int hasPlayerWon(Board* board) {
 	if (board->scorePlayerTwo > board->totalBallNumber / 2) {
 		return 2;
 	}
+	if (board->scorePlayerOne > 0) {
+		return 1;
+	}
 	return 0;
 }
 
@@ -197,7 +200,7 @@ int play(Board* board, int playerId, int cellNb) {
 	return hasPlayerWon(board); 
 }
 
-char* printBoard(Board* board, int playerId) {
+char* printBoard(Board* board, int playerId, char* playerTurnName) {
 	if (playerId < 1 && playerId > 2) return NULL;
 	
 	char* row = malloc(sizeof(char)*30);
@@ -209,7 +212,8 @@ char* printBoard(Board* board, int playerId) {
 	Cell* firstPlayerCell = getPlayerHead(board, playerId);
 
 	// Score row
-	offset += sprintf(display + offset, "Score : \n");
+	offset += sprintf(display + offset, "\n - - - Au Tour de %s - - - \n", playerTurnName);
+	offset += sprintf(display + offset, "\nScore : \n");
 	offset += sprintf(display + offset, " -  Player 1 : %d\n", board->scorePlayerOne);
 	offset += sprintf(display + offset, " -  Player 2 : %d\n\n", board->scorePlayerTwo);
 

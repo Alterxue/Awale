@@ -32,6 +32,30 @@ void send_simple_packet(int fd, CommandType type, const char *msg) {
     send_packet(fd, &p);
 }
 
+// Helper lookup functions
+Player* find_player_by_fd(int fd) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (all_players[i].fd == fd) return &all_players[i];
+    }
+    return NULL;
+}
+
+Player* find_player_by_name(const char *name) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (all_players[i].fd != 0 && strcmp(all_players[i].pseudo, name) == 0) {
+            return &all_players[i];
+        }
+    }
+    return NULL;
+}
+// Using ERROR locally just to mark it as invalid
+GameSession* find_empty_game_slot() {
+    for (int i = 0; i < MAX_GAMES; i++) {
+        if (all_games[i].session_id == 0) return &all_games[i];
+    }
+    return NULL;
+}
+
 GameSession* find_game_by_id(int game_id) {
     for (int i = 0; i < MAX_GAMES; i++) {
         if (all_games[i].session_id == game_id) {
@@ -48,6 +72,11 @@ GameSession* find_game_by_player_id(int player_id) {
         }
     }
     return NULL;
+}
+
+int get_player_number(GameSession* game, int player_id) {
+    if (game->player1_fd == player_id) return 1;
+    return 2;
 }
 
 void add_friend(int fd, const char *friend_name) {
@@ -81,34 +110,8 @@ int is_friend(Player *owner, const char *spectator_name) {
     return 0;
 }
 
-// Helper lookup functions
-Player* find_player_by_fd(int fd) {
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (all_players[i].fd == fd) return &all_players[i];
-    }
-    return NULL;
-}
-
-Player* find_player_by_name(const char *name) {
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (all_players[i].fd != 0 && strcmp(all_players[i].pseudo, name) == 0) {
-            return &all_players[i];
-        }
-    }
-    return NULL;
-}
-// Using ERROR locally just to mark it as invalid
-GameSession* find_empty_game_slot() {
-    for (int i = 0; i < MAX_GAMES; i++) {
-        if (all_games[i].session_id == 0) return &all_games[i];
-    }
-    return NULL;
-}
-
-
 
 // Player lifecycle and management
-
 void init_player(int fd) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (all_players[i].fd == 0) {
@@ -166,7 +169,6 @@ void register_player_name(int fd, const char *name) {
     strcpy(p->pseudo, name);
     p->state = STATE_LOBBY_IDLE;
     
-    // Send success confirmation
     send_simple_packet(fd, CMD_SUCCESS, "Inscrit avec succès. Bienvenue dans le lobby !");
 }
 
@@ -224,12 +226,6 @@ void handle_challenge_reject(int rejector_fd, const char *challenger_name) {
     }
 }
 
-char* get_other_player_name(GameSession* game, int player_nb) {
-    if (player_nb == 1) return game->player1_name;
-    if (player_nb == 2) return game->player2_name;
-    return NULL;
-}
-
 void create_game_session(int acceptor_fd, const char *challenger_name) {
     Player *acceptor = find_player_by_fd(acceptor_fd);
     Player *challenger = find_player_by_name(challenger_name);
@@ -248,14 +244,21 @@ void create_game_session(int acceptor_fd, const char *challenger_name) {
 
     // Choose who begins randomly
     int first_player = rand() % 2; 
-    int first_player_fd = (first_player == 0) ? challenger->fd : acceptor->fd;
-    int second_player_fd = (first_player == 0) ? acceptor->fd : challenger->fd;
+    Player *player1 = (first_player == 0) ? challenger : acceptor;
+    Player *player2 = (first_player == 0) ? acceptor : challenger;
 
     // Initialize game session data
     new_game->session_id = next_game_id++;
-    new_game->player1_fd = first_player_fd;
-    new_game->player2_fd = second_player_fd;
+    new_game->player1_fd = player1->fd;
+    new_game->player1_name = player1->pseudo;
+    new_game->player2_fd = player2->fd;
+    new_game->player2_name = player2->pseudo;
     new_game->spectator_count = 0;
+    new_game->is_private = 0; // Default to public
+    new_game->move_count = 0;
+    for (int i = 0; i < MAX_MOVES; i++) {
+        new_game->board_history[i] = NULL;
+    }
     
     // Initialize board
     Board* board = initBoard();
@@ -268,18 +271,13 @@ void create_game_session(int acceptor_fd, const char *challenger_name) {
     challenger->current_game_id = new_game->session_id;
 
     // Notify both players that the game has started
-    send_simple_packet(new_game->player1_fd, CMD_GAME_START, "La partie commence ! Vous êtes Joueur 1.");
+    send_simple_packet(new_game->player1_fd, CMD_GAME_START, "La partie commence !");
     send_simple_packet(new_game->player1_fd, INTERN_CMD_ALLOW_INPUT, NULL);
-    send_simple_packet(new_game->player1_fd, CMD_BOARD_STATE, printBoard(new_game->board, 1));
 
-    send_simple_packet(new_game->player2_fd, CMD_GAME_START, "La partie commence ! Vous êtes Joueur 2.");
-    send_simple_packet(new_game->player2_fd, INTERN_CMD_BLOCK_INPUT, &new_game->player1_name);
-    send_simple_packet(new_game->player2_fd, CMD_BOARD_STATE, printBoard(new_game->board, 2));
-}
-
-int get_player_number(GameSession* game, int player_id) {
-    if (game->player1_fd == player_id) return 1;
-    return 2;
+    send_simple_packet(new_game->player2_fd, CMD_GAME_START, "La partie commence !");
+    send_simple_packet(new_game->player2_fd, INTERN_CMD_BLOCK_INPUT, NULL);
+    
+    send_game_board_visuals(new_game, new_game->player1_name);
 }
 
 // In-game move processing
@@ -292,30 +290,48 @@ void handle_play_move(int player_fd, int pit_index) {
 
     int moveResult = play(game->board, player, pit_index);
 
+    if (moveResult == -1) {
+        send_simple_packet(player_fd, CMD_ERROR, "Coup invalide. Veuillez réessayer.");
+        return;
+    }
+
+    game->move_count++;
+
     if (moveResult == 1 || moveResult == 2) {
 
         handle_victory(moveResult);
-
-    } else if (moveResult == -1) {
-
-        int playerNb = get_player_number(game, player_fd);
-        send_simple_packet(player_fd, CMD_BOARD_STATE, "\n INVALID MOVE : TRY AGAIN \n");
-        send_simple_packet(player_fd, CMD_BOARD_STATE, printBoard(game->board, playerNb));
 
     } else {
 
         int curr_player_fd = player_fd;
         int other_player_fd = (curr_player_fd == game->player1_fd) ? game->player2_fd : game->player1_fd;
-        char* other_player_name = get_other_player_name(game, curr_player_fd);
 
         // Manage Inputs
-        send_simple_packet(curr_player_fd, INTERN_CMD_BLOCK_INPUT, &other_player_name);
+        send_simple_packet(curr_player_fd, INTERN_CMD_BLOCK_INPUT, NULL);
         send_simple_packet(other_player_fd, INTERN_CMD_ALLOW_INPUT, NULL);
 
         // Send Visual Data to both players
-        send_simple_packet(curr_player_fd, CMD_BOARD_STATE, printBoard(game->board, get_player_number(game, curr_player_fd)));
-        send_simple_packet(other_player_fd, CMD_BOARD_STATE, printBoard(game->board, get_player_number(game, other_player_fd)));
+        char* next_player_name  = (curr_player_fd == game->player1_fd) ? game->player2_name : game->player1_name;
+        send_game_board_visuals(game, next_player_name);
     }
+}
+
+void send_game_board_visuals(GameSession* game, char* next_player_turn) {
+    char* player1_board_visual = printBoard(game->board, 1, next_player_turn);
+
+    // To players
+    send_simple_packet(game->player1_fd, CMD_BOARD_STATE, player1_board_visual);
+    send_simple_packet(game->player2_fd, CMD_BOARD_STATE, printBoard(game->board, 2, next_player_turn));
+
+    // To spectators
+    for (int i = 0; i < game->spectator_count; i++)
+    {
+        int spectator_fd = game->spectators[i];
+        send_simple_packet(spectator_fd, CMD_BOARD_STATE, player1_board_visual);
+    }
+
+    // Update Board History for Replay
+    game->board_history[game->move_count] = player1_board_visual;
 }
 
 void handle_victory(GameSession* game, int player_fd) {
@@ -352,8 +368,6 @@ void send_player_bio(int requester_fd, const char *target_name) {
     send_simple_packet(requester_fd, CMD_SHOW_BIO, buffer);
 }
 
-// system of spectateur
-
 // checking the match which are playing
 void send_games_list(int fd) {
     char list_buffer[512] = "=== Parties en cours ===\n";
@@ -384,6 +398,7 @@ void send_games_list(int fd) {
     send_simple_packet(fd, CMD_GAMES_LIST, list_buffer);
 }
 
+// system of spectateur
 void join_game_as_spectator(int fd, const char *target_name) {
     Player *spectator = find_player_by_fd(fd);
     Player *target = find_player_by_name(target_name);
@@ -420,9 +435,14 @@ void join_game_as_spectator(int fd, const char *target_name) {
     game->spectators[game->spectator_count++] = fd;
     spectator->state = STATE_SPECTATING;
     spectator->current_game_id = game->session_id;
+
+    char msg[256];
+
+    snprintf(msg, sizeof(msg),
+        "Vous observez maintenant la partie avec le point de vue du joueur %s.",
+        game->player1_name);
     
-    send_simple_packet(fd, CMD_SUCCESS, "Vous observez maintenant la partie.");
-    // todo : send the board to the spectator 
+    send_simple_packet(fd, CMD_SUCCESS, msg);
 }
 
 void save_game_to_file(GameSession *game) {
@@ -434,16 +454,8 @@ void save_game_to_file(GameSession *game) {
     
     fprintf(file, "=== %s VS %s ===\n\n", game->player1_name, game->player2_name);
     
-    for (int i = 0; i < game->move_count; i++) {
-        fprintf(file, "[Tour %d] Coup joué : %d\n", i + 1, game->move_history[i]);
-        
-        // use the awale function to display the board
-        char board_ascii[512];
-        // board_to_string(&(game->board_history[i]), board_ascii);
-        // show_board(joueur1);
-        
-        fprintf(file, "%s\n", board_ascii);
-        fprintf(file, "------------------------\n");
+    for (int i = 1; i <= game->move_count; i++) {
+        fprintf(file, "%s", game->board_history[i]);
     }
     
     fclose(file);

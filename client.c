@@ -215,12 +215,10 @@ int main(int argc, char** argv) {
                     skip_next_prompt_ask = 1;
                     break;
                 case INTERN_CMD_BLOCK_INPUT:
-                    printf("\n- - - %s's Turn - - -\n", p.payload);
                     allow_input = 0;
                     skip_next_prompt_ask = 1;
                     break;
                 case INTERN_CMD_ALLOW_INPUT:
-                    printf("\n- - - Your Turn - - -\n"); 
                     allow_input = 1;
                     skip_next_prompt_ask = 1;
                     break;
@@ -259,8 +257,8 @@ int main(int argc, char** argv) {
                     if (allow_input && !skip_next_prompt_ask) {
                         printf("> ");
                         fflush(stdout);
+                        continue;
                     }
-                    continue;
                 }
 
                 if (strncmp(buffer, "/quit", 5) == 0) {

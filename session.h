@@ -33,19 +33,16 @@ typedef struct {
 
 // Game room (session) structure
 typedef struct {
-    int session_id;         // Room ID, 0 means room is free
-    int player1_fd;         // Player 1 (first to move)
-    int player2_fd;         // Player 2 (second to move)
-    int is_private;         // Public = 0, Private = 1;
-    // AwaleBoard board;    // Placeholder: board data structure from awale.h
-    int spectators[MAX_SPECTATORS]; // Array of spectator FDs
+    int session_id;                      // Room ID, 0 means room is free
+    int player1_fd;                      // Player 1 (first to move)
+    int player2_fd;                      // Player 2 (second to move)
+    int is_private;                      // Public = 0, Private = 1;
+    int spectators[MAX_SPECTATORS];      // Array of spectator FDs
     int spectator_count;
-    int move_history[MAX_MOVES]; // record all the moves
-    int move_count;              // record the number of total moves
-    //AwaleBoard board_history[MAX_MOVES];  //record every board
-    char player1_name[32];      
-    char player2_name[32];
-
+    int move_count;                      // record the number of total moves
+    char* board_history[MAX_MOVES];      // record every board
+    char* player1_name;      
+    char* player2_name;
     Board* board;
 } GameSession;
 

@@ -32,6 +32,6 @@ int hasPlayerWon(Board* board);
 bool isMoveValid(Board* board, int playerId, int cellNb, Cell* playerHead);
 int play(Board* board, int playerId, int cellNb);
 
-char* printBoard(Board* board, int playerId);
+char* printBoard(Board* board, int playerId, char* playerTurnName);
 
 #endif 
