@@ -32,6 +32,21 @@ void send_simple_packet(int fd, CommandType type, const char *msg) {
     send_packet(fd, &p);
 }
 
+void send_packet_to_player_and_spectator(GameSession* game, int fd, CommandType type, const char *msg) {
+    // To player
+    send_simple_packet(fd, type, msg);
+
+    // To spectators
+    for (int i = 0; i < game->spectator_count; i++)
+    {
+        int spectator_fd = game->spectators[i];
+        send_simple_packet(spectator_fd, CMD_BOARD_STATE, msg);
+    }
+
+    // Update Board History for Replay
+    game->board_history[game->move_count] = msg;
+}
+
 // Helper lookup functions
 Player* find_player_by_fd(int fd) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -271,13 +286,14 @@ void create_game_session(int acceptor_fd, const char *challenger_name) {
     challenger->current_game_id = new_game->session_id;
 
     // Notify both players that the game has started
-    send_simple_packet(new_game->player1_fd, CMD_GAME_START, "La partie commence !");
+    send_simple_packet(new_game->player1_fd, CMD_GAME_START, NULL);
     send_simple_packet(new_game->player1_fd, INTERN_CMD_ALLOW_INPUT, NULL);
 
-    send_simple_packet(new_game->player2_fd, CMD_GAME_START, "La partie commence !");
+    send_simple_packet(new_game->player2_fd, CMD_GAME_START, NULL);
     send_simple_packet(new_game->player2_fd, INTERN_CMD_BLOCK_INPUT, NULL);
     
-    send_game_board_visuals(new_game, new_game->player1_name);
+    send_packet_to_player_and_spectator(new_game, new_game->player1_fd, CMD_BOARD_STATE, printScoreAndBoard(new_game, 1, new_game->player2_fd));
+    send_simple_packet(new_game->player2_fd, CMD_BOARD_STATE, printScoreAndBoard(new_game, 2, new_game->player2_fd));
 }
 
 // In-game move processing
@@ -285,10 +301,10 @@ void handle_play_move(int player_fd, int pit_index) {
     GameSession *game = find_game_by_player_id(player_fd);
     if (!game) return;
 
-    int player = get_player_number(game, player_fd);
-    if (!player) return;
+    int playerNb = get_player_number(game, player_fd);
+    if (!playerNb) return;
 
-    int moveResult = play(game->board, player, pit_index);
+    int moveResult = play(game->board, playerNb, pit_index);
 
     if (moveResult == -1) {
         send_simple_packet(player_fd, CMD_ERROR, "Coup invalide. Veuillez réessayer.");
@@ -298,50 +314,63 @@ void handle_play_move(int player_fd, int pit_index) {
     game->move_count++;
 
     if (moveResult == 1 || moveResult == 2) {
-
-        handle_victory(moveResult);
+        
+        int winner_fd = (moveResult == 1) ? game->player1_fd : game->player2_fd;
+        handle_victory(game, winner_fd);
 
     } else {
 
-        int curr_player_fd = player_fd;
-        int other_player_fd = (curr_player_fd == game->player1_fd) ? game->player2_fd : game->player1_fd;
+        int other_player_fd = (player_fd == game->player1_fd) ? game->player2_fd : game->player1_fd;
 
         // Manage Inputs
-        send_simple_packet(curr_player_fd, INTERN_CMD_BLOCK_INPUT, NULL);
+        send_simple_packet(player_fd, INTERN_CMD_BLOCK_INPUT, NULL);
         send_simple_packet(other_player_fd, INTERN_CMD_ALLOW_INPUT, NULL);
 
         // Send Visual Data to both players
-        char* next_player_name  = (curr_player_fd == game->player1_fd) ? game->player2_name : game->player1_name;
-        send_game_board_visuals(game, next_player_name);
+        send_packet_to_player_and_spectator(game, game->player1_fd, CMD_BOARD_STATE, printScoreAndBoard(game, 1, player_fd));
+        send_simple_packet(game->player2_fd, CMD_BOARD_STATE, printScoreAndBoard(game, 2, player_fd));
     }
 }
 
-void send_game_board_visuals(GameSession* game, char* next_player_turn) {
-    char* player1_board_visual = printBoard(game->board, 1, next_player_turn);
+char* printScoreAndBoard(GameSession* game, int fromViewOfPlayerId, int currentPlayerTurnFd) {
+	if (fromViewOfPlayerId < 1 || fromViewOfPlayerId > 2) return NULL;
+	
+	char* display = malloc(sizeof(char)*500);
+	int offset = 0;	
 
-    // To players
-    send_simple_packet(game->player1_fd, CMD_BOARD_STATE, player1_board_visual);
-    send_simple_packet(game->player2_fd, CMD_BOARD_STATE, printBoard(game->board, 2, next_player_turn));
+	// Score row
+    char* nextPlayerTurnName = (currentPlayerTurnFd == game->player1_fd) ?  game->player2_name : game->player1_name;
+	offset += sprintf(display + offset, "\n - - - Au Tour de %s - - - \n", nextPlayerTurnName);
+	offset += sprintf(display + offset, "\nScore : \n");
+	offset += sprintf(display + offset, " -  %s : %d\n", game->player1_name, game->board->scorePlayerOne);
+	offset += sprintf(display + offset, " -  %s : %d\n\n", game->player2_name, game->board->scorePlayerTwo);
+	
+	char * board_view = printBoard(game->board, fromViewOfPlayerId);
 
-    // To spectators
-    for (int i = 0; i < game->spectator_count; i++)
-    {
-        int spectator_fd = game->spectators[i];
-        send_simple_packet(spectator_fd, CMD_BOARD_STATE, player1_board_visual);
-    }
-
-    // Update Board History for Replay
-    game->board_history[game->move_count] = player1_board_visual;
+	sprintf(display + offset, "%s\n", board_view);
+	return display;
 }
 
-void handle_victory(GameSession* game, int player_fd) {
-    send_simple_packet(player_fd, CMD_BOARD_STATE, "\n- - - YOU WIN - - - \n");
+void handle_victory(GameSession* game, int winning_player_fd) {
+    send_simple_packet(winning_player_fd, CMD_GAME_END, "\n- - - YOU WIN - - - \n");
 
-    if (player_fd == game->player1_fd) {
-        send_simple_packet(game->player2_fd, CMD_BOARD_STATE, ("\n- - - %s WIN - - - \n", game->player1_name));
+    char* display = malloc(sizeof(char)*20);
+    
+    if (winning_player_fd == game->player1_fd) {
+        sprintf(display, "\n- - - %s WIN - - - \n", game->player1_name);
+        send_packet_to_player_and_spectator(game, game->player2_fd, CMD_GAME_END, display);
     } else {
-        send_simple_packet(game->player1_fd, CMD_BOARD_STATE, ("\n- - - %s WIN - - - \n", game->player2_name));
+        sprintf(display, "\n- - - %s WIN - - - \n", game->player2_name);
+        send_packet_to_player_and_spectator(game, game->player1_fd, CMD_GAME_END, display);
     }
+    
+    Player *player1 = find_player_by_fd(game->player1_fd);
+    Player *player2 = find_player_by_fd(game->player2_fd);
+
+    player1->state = STATE_LOBBY_IDLE;
+    player2->state = STATE_LOBBY_IDLE;
+    player1->current_game_id = -1;
+    player2->current_game_id = -1;
 }
 
 // system of bio 

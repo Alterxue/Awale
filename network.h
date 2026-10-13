@@ -11,6 +11,7 @@ typedef enum {
     CMD_CHALLENGE_ACCEPT,   // Accept a challenge
     CMD_CHALLENGE_REJECT,   // Reject a challenge
     CMD_GAME_START,         // Notification that the game has started
+    CMD_GAME_END,           // Notification that the game has ended
     CMD_PLAY_MOVE,          // Client sends a move (pit index)
     CMD_BOARD_STATE,        // Server broadcasts the updated board state
     INTERN_CMD_BLOCK_INPUT, // Server instructs the client to block input (e.g., during opponent's turn)

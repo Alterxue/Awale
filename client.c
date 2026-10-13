@@ -211,8 +211,13 @@ int main(int argc, char** argv) {
                     printf("Tapez /accept %s ou /reject %s\n", p.payload, p.payload);
                     break;
                 case CMD_GAME_START:
-                    printf("\n>>> %s <<<\n", p.payload);
+                    printf("\n>>> La partie commence ! <<<\n");
                     skip_next_prompt_ask = 1;
+                    break;
+                case CMD_GAME_END:
+                    printf("\n%s\n", p.payload);
+                    printf("\n>>> La partie est terminée ! <<<\n");
+                    allow_input = 1;
                     break;
                 case INTERN_CMD_BLOCK_INPUT:
                     allow_input = 0;

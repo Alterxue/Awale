@@ -3,34 +3,23 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <sys/types.h>
+#include "awale.h"
 
-// Condition de fin
-// x famine d'un joueur
-// x score > à la moitié
-// - 5 coups où personne mange rien
+// typedef struct Cell {
+// 	struct Cell* prev;
+// 	struct Cell* next;
+// 	int playerId;
+// 	int ballsNb;
+// } Cell;
 
-// Condition coup invalide :
-// - mettre famine à l'autre joueur alors qu'on peut l'éviter
-// - choisir une cellule sans boules
-
-// #define INITIAL_BALLS_NUMBER_IN_CELL 2;
-// #define ROW_SIZE 2;
-
-typedef struct Cell {
-	struct Cell* prev;
-	struct Cell* next;
-	int playerId;
-	int ballsNb;
-} Cell;
-
-typedef struct Board {
-	Cell* headPlayerOne;
-	Cell* headPlayerTwo;
-	int scorePlayerOne;
-	int scorePlayerTwo;
-	int rowSize;
-	int totalBallNumber;
-} Board;
+// typedef struct Board {
+// 	Cell* headPlayerOne;
+// 	Cell* headPlayerTwo;
+// 	int scorePlayerOne;
+// 	int scorePlayerTwo;
+// 	int rowSize;
+// 	int totalBallNumber;
+// } Board;
 
 Board* initBoard() {
 	// CONST
@@ -39,19 +28,15 @@ Board* initBoard() {
 
 	// Init Board
 	Board *board = malloc(sizeof(Board));
-    board->headPlayerOne = NULL;
-	board->headPlayerTwo = NULL;
 	board->rowSize = ROW_SIZE;
 	board->scorePlayerOne = 0;
 	board->scorePlayerTwo = 0;
-	board->totalBallNumber = INITIAL_BALLS_NUMBER*12;
+	board->totalBallNumber = INITIAL_BALLS_NUMBER*ROW_SIZE*2;
 
 	// Init First Cell
 	Cell *head = malloc(sizeof(Cell));
 	head->playerId = 1;
 	head->ballsNb = INITIAL_BALLS_NUMBER;
-	head->prev = NULL;
-	head->next = NULL;
 
 	board->headPlayerOne = head;
 
@@ -66,7 +51,6 @@ Board* initBoard() {
 			
 		newCell->playerId = playerId;
 		newCell->ballsNb = INITIAL_BALLS_NUMBER;
-		newCell->next = NULL;
 
 		// chainage
 		newCell->prev = curr;
@@ -200,8 +184,8 @@ int play(Board* board, int playerId, int cellNb) {
 	return hasPlayerWon(board); 
 }
 
-char* printBoard(Board* board, int playerId, char* playerTurnName) {
-	if (playerId < 1 && playerId > 2) return NULL;
+char* printBoard(Board* board, int fromViewOfPlayerId) {
+	if (fromViewOfPlayerId < 1 || fromViewOfPlayerId > 2) return NULL;
 	
 	char* row = malloc(sizeof(char)*30);
 	sprintf(row, "  - - - - - - - - - - - -\n");
@@ -209,13 +193,7 @@ char* printBoard(Board* board, int playerId, char* playerTurnName) {
 	char* display = malloc(sizeof(char)*500);
 	int offset = 0;	
 
-	Cell* firstPlayerCell = getPlayerHead(board, playerId);
-
-	// Score row
-	offset += sprintf(display + offset, "\n - - - Au Tour de %s - - - \n", playerTurnName);
-	offset += sprintf(display + offset, "\nScore : \n");
-	offset += sprintf(display + offset, " -  Player 1 : %d\n", board->scorePlayerOne);
-	offset += sprintf(display + offset, " -  Player 2 : %d\n\n", board->scorePlayerTwo);
+	Cell* firstPlayerCell = getPlayerHead(board, fromViewOfPlayerId);
 
 	offset += sprintf(display + offset, "%s", row);
 	
@@ -245,14 +223,3 @@ char* printBoard(Board* board, int playerId, char* playerTurnName) {
 	return display;
 }
 
-void testFamineConfig(Board* board) {
-	Cell *curr = board->headPlayerTwo;
-	while (curr->playerId == 2) {
-		curr->ballsNb = 0;
-		curr = curr->next;
-	}
-	while (curr->playerId == 1) {
-		curr->ballsNb = 3;
-		curr = curr->next;
-	}
-}

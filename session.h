@@ -2,7 +2,7 @@
 #define SESSION_H
 
 // Include basic network and game rule definitions
-// #include "network.h" 
+#include "network.h" 
 #include "awale.h" 
 
 #define MAX_CLIENTS 30
@@ -40,7 +40,7 @@ typedef struct {
     int spectators[MAX_SPECTATORS];      // Array of spectator FDs
     int spectator_count;
     int move_count;                      // record the number of total moves
-    char* board_history[MAX_MOVES];      // record every board
+    const char* board_history[MAX_MOVES];      // record every board
     char* player1_name;      
     char* player2_name;
     Board* board;
@@ -49,6 +49,10 @@ typedef struct {
 // External declaration of global state arrays (memory allocated in session.c)
 extern Player all_players[MAX_CLIENTS];
 extern GameSession all_games[MAX_GAMES];
+
+// Network utils
+void send_simple_packet(int fd, CommandType type, const char *msg);
+void send_packet_to_player_and_spectator(GameSession* game, int fd, CommandType type, const char *msg);
 
 // Lifecycle management
 void init_player(int fd);
@@ -67,15 +71,28 @@ void create_game_session(int acceptor_fd, const char *challenger_name);
 void set_player_bio(int fd, const char *bio);
 void send_player_bio(int requester_fd, const char *target_name);
 
+// fonction of friend
+void add_friend(int fd, const char *friend_name);
+void toggle_private_mode(int fd);
+int is_friend(Player *owner, const char *spectator_name);
+
 // fonction of spectator
 void send_games_list(int fd);
 void join_game_as_spectator(int fd, const char *target_name);
 
 // In-game operations
 void handle_play_move(int fd, int pit_index);
+void handle_victory(GameSession* game, int winning_player_fd);
+
+// Board visualization
+char* printScoreAndBoard(GameSession* game, int fromViewOfPlayerId, int currentPlayerTurn);
 
 // Internal helper utilities
 Player* find_player_by_fd(int fd);
 Player* find_player_by_name(const char *name);
+GameSession* find_empty_game_slot();
+GameSession* find_game_by_id(int game_id);
+GameSession* find_game_by_player_id(int player_id);
+int get_player_number(GameSession* game, int player_id);
 
 #endif
