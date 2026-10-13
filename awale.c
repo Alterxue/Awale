@@ -111,10 +111,7 @@ Cell* distributeBalls(Cell* initialCell) {
 
 int claimBalls(Cell* fromCell, int playerId) {
 	int claimedBalls = 0;
-	
 	Cell* curr = fromCell;
-	
-	int idx = 1;
 	while (curr->playerId != playerId) {
 		if (curr->ballsNb == 2 || curr->ballsNb == 3)  {
 			claimedBalls += curr->ballsNb;
@@ -255,40 +252,3 @@ void testFamineConfig(Board* board) {
 		curr = curr->next;
 	}
 }
-
-// int main(int argc, char** argv )
-// { 
-// 	int player = 1;
-// 	int nbCell = 0;
-	
-//   	// Init Plateau
-//   	printf ("Game Start\n");
-  
-//   	Board* b = initBoard();
-// 	testFamineConfig(b);
-// 	char* boardStr = printBoard(b, 1);
-// 	int victory = 0;
-
-// 	while (true) {
-// 		boardStr = printBoard(b, player);
-// 		printf("%s", boardStr);
-		
-// 		printf("(Player %d) - Cell nb : ", player);
-// 		scanf("%d", &nbCell);
-
-// 		victory = play(b, player, nbCell);
-// 		if (victory == 1 || victory == 2) {
-// 			boardStr = printBoard(b, player);
-// 			printf("%s", boardStr);
-// 			printf("\n - - - LE PLAYER %d A GAGNé - - - \n", victory);
-// 			break;
-// 		} 
-// 		if (victory != -1) {
-// 			player = 3 - player;
-// 		} else {
-// 			printf("\n COUP INVALIDE \n");
-// 		}
-// 	}
-   
-//    	return 1;
-// }

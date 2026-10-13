@@ -13,6 +13,8 @@ typedef enum {
     CMD_GAME_START,         // Notification that the game has started
     CMD_PLAY_MOVE,          // Client sends a move (pit index)
     CMD_BOARD_STATE,        // Server broadcasts the updated board state
+    INTERN_CMD_BLOCK_INPUT, // Server instructs the client to block input (e.g., during opponent's turn)
+    INTERN_CMD_ALLOW_INPUT, // Server instructs the client to allow input (e.g., during player's turn)
     CMD_CHAT_ALL,           // Global chat message in the lobby
     CMD_SET_BIO,            // modify the bio
     CMD_GET_BIO,            // request to check the Bio of someone else

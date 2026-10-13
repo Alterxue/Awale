@@ -161,11 +161,18 @@ int main(int argc, char** argv) {
     printf("> ");
     fflush(stdout);
 
+    int allow_input = 1;
+    int skip_next_prompt_ask = 0; 
+
     // the loop 
     while (1) {
+        skip_next_prompt_ask = 0;
         FD_ZERO(&read_fds);
-        FD_SET(STDIN_FILENO, &read_fds); // read the input of client
-        FD_SET(sockfd, &read_fds);       // read the input of the server
+        FD_SET(sockfd, &read_fds);          // read the input of the server
+
+        if (allow_input) {
+            FD_SET(STDIN_FILENO, &read_fds); // read the input of client
+        } 
 
         int max_fd = (sockfd > STDIN_FILENO) ? sockfd : STDIN_FILENO;
 
@@ -205,9 +212,20 @@ int main(int argc, char** argv) {
                     break;
                 case CMD_GAME_START:
                     printf("\n>>> %s <<<\n", p.payload);
+                    skip_next_prompt_ask = 1;
+                    break;
+                case INTERN_CMD_BLOCK_INPUT:
+                    printf("\n- - - %s's Turn - - -\n", p.payload);
+                    allow_input = 0;
+                    skip_next_prompt_ask = 1;
+                    break;
+                case INTERN_CMD_ALLOW_INPUT:
+                    printf("\n- - - Your Turn - - -\n"); 
+                    allow_input = 1;
+                    skip_next_prompt_ask = 1;
                     break;
                 case CMD_BOARD_STATE:
-                    printf("\n%s\n", p.payload); // In the future, this will print the ASCII board
+                    printf("\n%s", p.payload);
                     break;
                 case CMD_CHAT_ALL:
                     printf("[CHAT PUBLIC] %s\n", p.payload);
@@ -225,19 +243,23 @@ int main(int argc, char** argv) {
                     printf("[MESSAGE INCONNU] Type: %d\n", p.type);
                     break;
             }
-            printf("> ");
-            fflush(stdout);
+            if (allow_input && !skip_next_prompt_ask) {
+                printf("> ");
+                fflush(stdout);
+            } 
         }
 
-        //2nd situation: receive the input of the client
+        //2nd situation: read the input of the client
         if (FD_ISSET(STDIN_FILENO, &read_fds)) {
             memset(buffer, 0, BUFFER_SIZE);
             if (fgets(buffer, BUFFER_SIZE, stdin) != NULL) {
                 
                 // Do not process empty lines (just pressing Enter)
                 if (buffer[0] == '\n') {
-                    printf("> ");
-                    fflush(stdout);
+                    if (allow_input && !skip_next_prompt_ask) {
+                        printf("> ");
+                        fflush(stdout);
+                    }
                     continue;
                 }
 
@@ -258,11 +280,16 @@ int main(int argc, char** argv) {
                         perror("Send failed");
                         break;
                     }
+                    if (p.type == CMD_PLAY_MOVE) {
+                        skip_next_prompt_ask = 1;
+                    }
                 }
                 
                 // Print a prompt for the next input
-                printf("> ");
-                fflush(stdout);
+                if (allow_input && !skip_next_prompt_ask) {
+                    printf("> ");
+                    fflush(stdout);
+                }
             }
         }
     }

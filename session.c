@@ -33,20 +33,16 @@ void send_simple_packet(int fd, CommandType type, const char *msg) {
 }
 
 GameSession* find_game_by_id(int game_id) {
-
     for (int i = 0; i < MAX_GAMES; i++) {
-
-        if (all_games[i].session_id == game_id) return &all_games[i];
-
+        if (all_games[i].session_id == game_id) {
+            return &all_games[i];
+        } 
     }
-
     return NULL;
-
 }
 
 GameSession* find_game_by_player_id(int player_id) {
     for (int i = 0; i < MAX_GAMES; i++) {
-
         if (all_games[i].player1_fd == player_id || all_games[i].player2_fd == player_id) {
             return &all_games[i];
         }
@@ -228,6 +224,12 @@ void handle_challenge_reject(int rejector_fd, const char *challenger_name) {
     }
 }
 
+char* get_other_player_name(GameSession* game, int player_nb) {
+    if (player_nb == 1) return game->player1_name;
+    if (player_nb == 2) return game->player2_name;
+    return NULL;
+}
+
 void create_game_session(int acceptor_fd, const char *challenger_name) {
     Player *acceptor = find_player_by_fd(acceptor_fd);
     Player *challenger = find_player_by_name(challenger_name);
@@ -244,10 +246,15 @@ void create_game_session(int acceptor_fd, const char *challenger_name) {
         return;
     }
 
+    // Choose who begins randomly
+    int first_player = rand() % 2; 
+    int first_player_fd = (first_player == 0) ? challenger->fd : acceptor->fd;
+    int second_player_fd = (first_player == 0) ? acceptor->fd : challenger->fd;
+
     // Initialize game session data
     new_game->session_id = next_game_id++;
-    new_game->player1_fd = challenger->fd;
-    new_game->player2_fd = acceptor->fd;
+    new_game->player1_fd = first_player_fd;
+    new_game->player2_fd = second_player_fd;
     new_game->spectator_count = 0;
     
     // Initialize board
@@ -261,23 +268,18 @@ void create_game_session(int acceptor_fd, const char *challenger_name) {
     challenger->current_game_id = new_game->session_id;
 
     // Notify both players that the game has started
-    send_simple_packet(challenger->fd, CMD_GAME_START, "La partie commence ! Vous êtes Joueur 1.");
-    send_simple_packet(acceptor->fd, CMD_GAME_START, "La partie commence ! Vous êtes Joueur 2.");
+    send_simple_packet(new_game->player1_fd, CMD_GAME_START, "La partie commence ! Vous êtes Joueur 1.");
+    send_simple_packet(new_game->player1_fd, INTERN_CMD_ALLOW_INPUT, NULL);
+    send_simple_packet(new_game->player1_fd, CMD_BOARD_STATE, printBoard(new_game->board, 1));
 
-    send_simple_packet(challenger->fd, CMD_BOARD_STATE, printBoard(new_game->board, 1));
-    send_simple_packet(acceptor->fd, CMD_BOARD_STATE, printBoard(new_game->board, 2));
+    send_simple_packet(new_game->player2_fd, CMD_GAME_START, "La partie commence ! Vous êtes Joueur 2.");
+    send_simple_packet(new_game->player2_fd, INTERN_CMD_BLOCK_INPUT, &new_game->player1_name);
+    send_simple_packet(new_game->player2_fd, CMD_BOARD_STATE, printBoard(new_game->board, 2));
 }
 
 int get_player_number(GameSession* game, int player_id) {
     if (game->player1_fd == player_id) return 1;
-    if (game->player2_fd == player_id) return 2;
-    return NULL;
-}
-
-char* get_other_player_name(GameSession* game, int player_nb) {
-    if (player_nb == 1) return game->player1_name;
-    if (player_nb == 2) return game->player2_name;
-    return NULL;
+    return 2;
 }
 
 // In-game move processing
@@ -291,38 +293,37 @@ void handle_play_move(int player_fd, int pit_index) {
     int moveResult = play(game->board, player, pit_index);
 
     if (moveResult == 1 || moveResult == 2) {
+
         handle_victory(moveResult);
+
     } else if (moveResult == -1) {
-        if (player_fd == game->player1_fd) {
-            send_simple_packet(game->player1_fd, CMD_BOARD_STATE, "\n INVALID MOVE : TRY AGAIN \n");
-            send_simple_packet(game->player1_fd, CMD_BOARD_STATE, printBoard(game->board, 1));
-        } else {
-            send_simple_packet(game->player2_fd, CMD_BOARD_STATE, "\n INVALID MOVE : TRY AGAIN \n");
-            send_simple_packet(game->player2_fd, CMD_BOARD_STATE, printBoard(game->board, 2));
-        }
+
+        int playerNb = get_player_number(game, player_fd);
+        send_simple_packet(player_fd, CMD_BOARD_STATE, "\n INVALID MOVE : TRY AGAIN \n");
+        send_simple_packet(player_fd, CMD_BOARD_STATE, printBoard(game->board, playerNb));
+
     } else {
-        char* otherPlayerName = get_other_player_name(game, player);
-        if (player_fd == game->player1_fd) {
-            send_simple_packet(game->player1_fd, CMD_BOARD_STATE, ("- - - %s turn - - - \n", otherPlayerName));
-            send_simple_packet(game->player1_fd, CMD_BOARD_STATE, printBoard(game->board, 1));
-            send_simple_packet(game->player2_fd, CMD_BOARD_STATE, "- - - Your turn - - - \n");
-            send_simple_packet(game->player2_fd, CMD_BOARD_STATE, printBoard(game->board, 2));
-        } else {
-            send_simple_packet(game->player2_fd, CMD_BOARD_STATE, ("- - - %s turn - - - \n", otherPlayerName));
-            send_simple_packet(game->player2_fd, CMD_BOARD_STATE, printBoard(game->board, 2));
-            send_simple_packet(game->player1_fd, CMD_BOARD_STATE, "- - - Your turn - - - \n");
-            send_simple_packet(game->player1_fd, CMD_BOARD_STATE, printBoard(game->board, 1));
-        }
-        // game->
+
+        int curr_player_fd = player_fd;
+        int other_player_fd = (curr_player_fd == game->player1_fd) ? game->player2_fd : game->player1_fd;
+        char* other_player_name = get_other_player_name(game, curr_player_fd);
+
+        // Manage Inputs
+        send_simple_packet(curr_player_fd, INTERN_CMD_BLOCK_INPUT, &other_player_name);
+        send_simple_packet(other_player_fd, INTERN_CMD_ALLOW_INPUT, NULL);
+
+        // Send Visual Data to both players
+        send_simple_packet(curr_player_fd, CMD_BOARD_STATE, printBoard(game->board, get_player_number(game, curr_player_fd)));
+        send_simple_packet(other_player_fd, CMD_BOARD_STATE, printBoard(game->board, get_player_number(game, other_player_fd)));
     }
 }
 
 void handle_victory(GameSession* game, int player_fd) {
+    send_simple_packet(player_fd, CMD_BOARD_STATE, "\n- - - YOU WIN - - - \n");
+
     if (player_fd == game->player1_fd) {
-        send_simple_packet(game->player1_fd, CMD_BOARD_STATE, "\n- - - YOU WIN - - - \n");
         send_simple_packet(game->player2_fd, CMD_BOARD_STATE, ("\n- - - %s WIN - - - \n", game->player1_name));
     } else {
-        send_simple_packet(game->player2_fd, CMD_BOARD_STATE, "\n- - - YOU WIN - - - \n");
         send_simple_packet(game->player1_fd, CMD_BOARD_STATE, ("\n- - - %s WIN - - - \n", game->player2_name));
     }
 }
