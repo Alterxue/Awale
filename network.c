@@ -17,12 +17,10 @@ int send_packet(int fd, const Packet *p) {
     int bytes_left = sizeof(Packet);
     int n;
 
-    // Use a while loop to prevent TCP partial send issues.
-    // Ensures the entire memory block of the Packet is sent before returning.
     while (total_sent < bytes_left) {
         n = send(fd, (char*)p + total_sent, bytes_left - total_sent, 0);
         if (n == -1) {
-            perror("send_packet error");
+            // Error occurred
             return -1;
         }
         total_sent += n;
@@ -41,20 +39,19 @@ int receive_packet(int fd, Packet *p) {
     int bytes_left = sizeof(Packet);
     int n;
 
-    // Clear the structure before receiving to prevent garbage memory data.
+    // clear space
     memset(p, 0, sizeof(Packet));
 
-    // Ensures exactly one full Packet is received before returning.
     while (total_received < bytes_left) {
         n = recv(fd, (char*)p + total_received, bytes_left - total_received, 0);
         
         if (n == 0) {
-            // 0 means the client has gracefully closed the connection.
+            // Means the client has closed the connection.
             return 0;
         }
         if (n == -1) {
-            perror("receive_packet error");
-            return -1;
+            // Error occurred
+            return -1;  
         }
         total_received += n;
     }
