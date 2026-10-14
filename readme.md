@@ -119,3 +119,8 @@ Toutes les interactions avec le jeu se font via des commandes textuelles précé
   - 30 clients maximum connectés simultanément.
   - 15 parties en simultané.
   - 10 amis maximum par joueur.
+
+## Equipe
+
+- Yuchen Xue
+- Mathieu Leroux
