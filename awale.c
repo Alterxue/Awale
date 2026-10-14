@@ -117,9 +117,6 @@ int hasPlayerWon(Board* board) {
 	if (board->scorePlayerTwo > board->totalBallNumber / 2) {
 		return 2;
 	}
-	if (board->scorePlayerOne > 0) {
-		return 1;
-	}
 	return 0;
 }
 
