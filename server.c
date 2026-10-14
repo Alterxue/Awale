@@ -193,6 +193,11 @@ int main(int argc, char *argv[]) {
                             add_friend(sd, p.payload);
                             break;
 
+                        case CMD_LIST_FRIENDS:
+                            printf("FD %d requested friend list\n", sd);
+                            send_friend_list(sd);
+                            break;
+
                         case CMD_SET_PRIVATE:
                             printf("FD %d request to make room private\n", sd);
                             toggle_private_mode(sd);

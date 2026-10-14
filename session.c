@@ -107,6 +107,26 @@ void add_friend(int fd, const char *friend_name) {
     send_simple_packet(fd, CMD_SUCCESS, "Ami ajouté avec succès.");
 }
 
+void send_friend_list(int fd) {
+    Player *p = find_player_by_fd(fd);
+    if (!p) return;
+
+    char list_buffer[512] = "=== Votre liste d'amis ===\n";
+
+    if (p->friend_count == 0) {
+        strncat(list_buffer, " Aucun ami ajouté.\n", sizeof(list_buffer) - strlen(list_buffer) - 1);
+    } else {
+        for (int i = 0; i < p->friend_count; i++) {
+            char line[64];
+            snprintf(line, sizeof(line), " - %s\n", p->friends[i]);
+            strncat(list_buffer, line, sizeof(list_buffer) - strlen(list_buffer) - 1);
+        }
+    }
+
+    strncat(list_buffer, "==========================", sizeof(list_buffer) - strlen(list_buffer) - 1);
+    send_simple_packet(fd, CMD_FRIENDS_LIST, list_buffer);
+}
+
 void toggle_private_mode(int fd) {
     Player *p = find_player_by_fd(fd);
     if (!p || p->current_game_id == -1) return;

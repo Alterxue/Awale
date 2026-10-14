@@ -73,6 +73,7 @@ void send_player_bio(int requester_fd, const char *target_name);
 
 // fonction of friend
 void add_friend(int fd, const char *friend_name);
+void send_friend_list(int fd);
 void toggle_private_mode(int fd);
 int is_friend(Player *owner, const char *spectator_name);
 

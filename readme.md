@@ -90,6 +90,7 @@ Toutes les interactions avec le jeu se font via des commandes textuelles précé
 | Commande | Description |
 |---|---|
 | `/friend <pseudo>` | Ajouter un joueur à votre liste d'amis. |
+| `/friendlist` | Afficher votre liste d'amis. |
 | `/games` | Afficher toutes les parties actuellement en cours sur le serveur. |
 | `/spectate <pseudo>` | Rejoindre une partie en tant que spectateur pour observer les coups en direct. |
 | `/private` | À utiliser pendant une partie : verrouille votre partie. Seuls les joueurs de votre liste d'amis pourront utiliser `/spectate` pour vous observer. |

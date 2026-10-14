@@ -26,6 +26,8 @@ typedef enum {
     CMD_ERROR,              // Error message (ex: invalid move, name taken)
     CMD_SUCCESS,            // Success confirmation message
     CMD_FRIEND_ADD,         // Add a friend 
+    CMD_LIST_FRIENDS,       // Request friend list
+    CMD_FRIENDS_LIST,       // Server response containing friend list
     CMD_SET_PRIVATE,        // Set a game to mode private
     CMD_SAVE_GAME,          // Save the current game
     CMD_LIST_REPLAYS,       // Check all the games in replay list
