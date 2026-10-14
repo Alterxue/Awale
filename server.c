@@ -152,10 +152,24 @@ int main(int argc, char *argv[]) {
                             handle_challenge_reject(sd, p.payload);
                             break;
 
-                        case CMD_PLAY_MOVE:
+                        case CMD_PLAY_MOVE:{
+                            Player *player = find_player_by_fd(sd);
+
+                            if (player == NULL ||
+                                player->state != STATE_PLAYING ||
+                                player->current_game_id == -1) {
+                                send_simple_packet(
+                                    sd,
+                                    CMD_ERROR,
+                                    "Vous devez être dans une partie pour jouer."
+                                );
+                                break;
+                            }
+
                             printf("FD %d requests move at pit: %s\n", sd, p.payload);
                             handle_play_move(sd, atoi(p.payload));
                             break;
+                        }
 
                         case CMD_SET_BIO:
                             set_player_bio(sd, p.payload);

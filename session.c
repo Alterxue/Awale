@@ -298,7 +298,14 @@ void create_game_session(int acceptor_fd, const char *challenger_name) {
 // In-game move processing
 void handle_play_move(int player_fd, int pit_index) {
     GameSession *game = find_game_by_player_id(player_fd);
-    if (!game) return;
+    if (!game) {
+        send_simple_packet(
+        player_fd,
+        CMD_ERROR,
+        "Vous n'êtes pas dans une partie."
+        );
+        return;
+    }
 
     int playerNb = get_player_number(game, player_fd);
     if (!playerNb) return;
