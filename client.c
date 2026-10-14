@@ -84,6 +84,10 @@ void parse_user_input(char *input, Packet *p) {
         strcpy(p->payload, input + 8);
         p->data_length = strlen(p->payload);
     }
+    else if (strcmp(input, "/friendlist") == 0) {
+        p->type = CMD_LIST_FRIENDS;
+        p->data_length = 0;
+    }
     else if (strcmp(input, "/private") == 0) {
         p->type = CMD_SET_PRIVATE;
         p->data_length = 0;
@@ -120,6 +124,7 @@ void print_help_menu() {
     printf(" /spectate <pseudo>    - Observer la partie d'un joueur\n");
     printf(" /quit                 - Se deconnecter et quitter le jeu\n");
     printf(" /friend <pseudo>      - Ajouter un joueur à votre liste d'amis\n");
+    printf(" /friendlist           - Afficher votre liste d'amis\n");
     printf(" /private              - Rendre votre partie en cours privée (amis uniquement)\n");
     printf(" /save                 - Sauvegarder la partie à la fin de une partie\n");
     printf(" /replays              - Afficher la liste des replays sauvegardés\n");
@@ -250,6 +255,9 @@ int main(int argc, char** argv) {
                     printf("\n%s\n", p.payload);
                     break; 
                 case CMD_REPLAYS_LIST:
+                    printf("\n%s\n", p.payload);
+                    break;
+                case CMD_FRIENDS_LIST:
                     printf("\n%s\n", p.payload);
                     break;
                 default:
