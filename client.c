@@ -170,6 +170,7 @@ int main(int argc, char** argv) {
 
     int allow_input = 1;
     int skip_next_prompt_ask = 0; 
+    int is_in_game = 0;
 
     // the loop 
     while (1) {
@@ -219,11 +220,13 @@ int main(int argc, char** argv) {
                     break;
                 case CMD_GAME_START:
                     printf("\n>>> La partie commence ! <<<\n");
+                    is_in_game = 1;
                     skip_next_prompt_ask = 1;
                     break;
                 case CMD_GAME_END:
                     printf("\n%s\n", p.payload);
                     printf("\n>>> La partie est terminée ! <<<\n");
+                    is_in_game = 0;
                     allow_input = 1;
                     break;
                 case INTERN_CMD_BLOCK_INPUT:
@@ -289,13 +292,17 @@ int main(int argc, char** argv) {
                         printf("%s\n", p.payload);
                     }
                 } else {
-                    // Send the formatted packet to the server
-                    if (send_packet(sockfd, &p) < 0) {
-                        perror("Send failed");
-                        break;
-                    }
-                    if (p.type == CMD_PLAY_MOVE) {
-                        skip_next_prompt_ask = 1;
+                    if (p.type == CMD_PLAY_MOVE && !is_in_game) {
+                        printf("Vous n'êtes pas dans une partie.\n");
+                    } else {
+                        // Send the formatted packet to the server
+                        if (send_packet(sockfd, &p) < 0) {
+                            perror("Send failed");
+                            break;
+                        }
+                        if (p.type == CMD_PLAY_MOVE) {
+                            skip_next_prompt_ask = 1;
+                        }
                     }
                 }
                 
