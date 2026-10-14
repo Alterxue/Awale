@@ -6,7 +6,7 @@
 #include "session.h"
 #include "network.h"
 
-// Actual global data is stored here
+// Global data is stored here
 Player all_players[MAX_CLIENTS];
 GameSession all_games[MAX_GAMES];
 
@@ -409,14 +409,12 @@ void send_games_list(int fd) {
     int active_games = 0;
 
     for (int i = 0; i < MAX_GAMES; i++) {
-        // if the room is using
         if (all_games[i].session_id != 0) {
             Player *p1 = find_player_by_fd(all_games[i].player1_fd);
             Player *p2 = find_player_by_fd(all_games[i].player2_fd);
             
             if (p1 && p2) {
                 char line[128];
-                // format
                 snprintf(line, sizeof(line), " [Salon %d] %s vs %s (%d spectateurs)\n", 
                          all_games[i].session_id, p1->pseudo, p2->pseudo, all_games[i].spectator_count);
                 strcat(list_buffer, line);

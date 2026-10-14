@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        //2nd situation: Data coming from existing clients
+        // 2nd situation: Data coming from existing clients
         for (int i = 0; i < MAX_CLIENTS; i++) {
             int sd = client_sockets[i];
 
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
                     client_sockets[i] = 0; // Free the slot
                     
                 } else if (valread > 0) {
-                    // Route the packet to the correct session logic
+                    // Execute client command
                     switch(p.type) {
                         case CMD_LOGIN:
                             printf("FD %d requests nickname: %s\n", sd, p.payload);
