@@ -71,15 +71,6 @@ int main(int argc, char *argv[]) {
             if (sd > 0) {
                 FD_SET(sd, &read_fds);
             }
-            if (sd > max_sd) {
-                max_sd = sd;
-            }
-        }
-
-        // Wait for an activity on one of the sockets
-        if (select(max_sd + 1, &read_fds, NULL, NULL, NULL) < 0) {
-            perror("Select error");
-            continue;
         }
 
         // 1st situation: New connection

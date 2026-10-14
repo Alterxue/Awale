@@ -22,9 +22,7 @@ Cette commande génère deux exécutables :
 
 ---
 
-## 2. Lancement de l'application
-
-> **Règle d'or :** le serveur doit toujours être démarré avant les clients.
+## 2. Lancement de l'application    
 
 ### 2.1 Démarrer le serveur
 
