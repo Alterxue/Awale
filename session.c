@@ -147,7 +147,7 @@ void remove_player(int fd) {
     Player *p = find_player_by_fd(fd);
     if (p == NULL) return;
 
-    // Robustness check: if player disconnects during a game, opponent wins
+    // If player disconnects during a game, opponent wins
     if (p->state == STATE_PLAYING && p->current_game_id != -1) {
         GameSession *game = find_game_by_id(p->current_game_id);
         if (game) {
@@ -156,17 +156,16 @@ void remove_player(int fd) {
             
             if (opponent) {
                 // Notify opponent of victory due to disconnection
-                send_simple_packet(opponent->fd, CMD_SUCCESS, "Votre adversaire s'est déconnecté. Vous gagnez !");
+                send_simple_packet(opponent->fd, CMD_GAME_END, "Votre adversaire s'est déconnecté. Vous gagnez !");
                 opponent->state = STATE_LOBBY_IDLE; 
                 opponent->current_game_id = -1;
             }
-            // Clean up the room
+            
             game->session_id = 0; 
         }
     }
     
-    // If challenged but disconnected, reset the target (simplified)
-    // Completely clear the slot
+    // Reset player data
     p->fd = 0;
     p->current_game_id = -1;
 }
@@ -202,7 +201,7 @@ void send_lobby_list(int fd) {
     send_simple_packet(fd, CMD_PLAYERS_LIST, list_buffer);
 }
 
-// Challenge system and matchmaking
+// Challenge system
 void handle_challenge_request(int challenger_fd, const char *target_name) {
     Player *challenger = find_player_by_fd(challenger_fd);
     Player *target = find_player_by_name(target_name);

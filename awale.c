@@ -5,22 +5,6 @@
 #include <sys/types.h>
 #include "awale.h"
 
-// typedef struct Cell {
-// 	struct Cell* prev;
-// 	struct Cell* next;
-// 	int playerId;
-// 	int ballsNb;
-// } Cell;
-
-// typedef struct Board {
-// 	Cell* headPlayerOne;
-// 	Cell* headPlayerTwo;
-// 	int scorePlayerOne;
-// 	int scorePlayerTwo;
-// 	int rowSize;
-// 	int totalBallNumber;
-// } Board;
-
 Board* initBoard() {
 	// CONST
 	int INITIAL_BALLS_NUMBER = 4;

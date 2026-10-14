@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        // 1st situation: New connection coming in
+        // 1st situation: New connection
         if (FD_ISSET(server_fd, &read_fds)) {
             if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
                 perror("Accept error");
@@ -98,21 +98,19 @@ int main(int argc, char *argv[]) {
                     client_sockets[i] = new_socket;
                     printf("Added to client list at index %d\n", i);
                     
-                    // Call session.c to initialize player state
                     init_player(new_socket);
                     break;
                 }
             }
         }
 
-        //2nd situation: Data send_simple_packet(fd, CMD_SUCCESS, "Partie terminée ! Tapez /save pour enregistrer le replay.");coming from existing clients
+        //2nd situation: Data coming from existing clients
         for (int i = 0; i < MAX_CLIENTS; i++) {
             int sd = client_sockets[i];
 
             if (sd > 0 && FD_ISSET(sd, &read_fds)) {
                 Packet p;
                 
-                // Use our robust receive_packet function instead of raw recv
                 int valread = receive_packet(sd, &p);
                 
                 if (valread == 0) {

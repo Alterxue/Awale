@@ -45,6 +45,13 @@ void parse_user_input(char *input, Packet *p) {
         p->data_length = strlen(p->payload);
     } 
     else if (strncmp(input, "/play ", 6) == 0) {
+        int pit_index = atoi(input + 6);
+        if (pit_index < 1 || pit_index > 6) {
+            p->type = CMD_ERROR;
+            strcpy(p->payload, "Case invalide, Veuillez choisir un nombre entre 1 et 6.");
+            p->data_length = strlen(p->payload);
+            return;
+        }
         p->type = CMD_PLAY_MOVE;
         strcpy(p->payload, input + 6);
         p->data_length = strlen(p->payload);
@@ -276,7 +283,11 @@ int main(int argc, char** argv) {
 
                 // Check if parsing failed locally
                 if (p.type == CMD_ERROR) {
-                    printf("Commande inconnue. Veuillez utiliser /login, /challenge, etc.\n");
+                    if (p.data_length == 0) {
+                        printf("Commande inconnue. Veuillez utiliser /login, /challenge, etc.\n");
+                    } else {
+                        printf("%s\n", p.payload);
+                    }
                 } else {
                     // Send the formatted packet to the server
                     if (send_packet(sockfd, &p) < 0) {
